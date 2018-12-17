@@ -1,0 +1,73 @@
+* Test1
+  Usually something what hasn't been thoroughly data store (device) on A shoulde be mounted read-write to /mnt/my-data and write
+     access has to work
+** Install virtual machines
+   30%
+   * enable SELinux with targeted policy
+   * enable firewalld with default configuration
+   * root pasword is set to asdf
+   * two machines gamma, delta
+   * commands ping gammma, ping delta
+** Cluster
+   30%
+   * create 2-node cluester
+   * Create HTTP server working as service
+     * web pages containing name of node
+     * HTTP accessible from host (laptop)
+     * Browser should use same approach to get to web page
+** Storage
+   40%
+   * prepare data server on node delta that server data from gamma
+   * data should be encrypted
+   * loopbacks as underlying data storage
+   * mount data to /mnt/encrypted at node gamma
+   * use FS that allows you to have more data that is capacity of physical disk
+     * (ext4 fs + lvm, btrfs)
+   * Prepare script that will backup these data to node delta (without unmounting)
+
+* Test2
+  Usually something 
+** Install virtual machines
+   30%
+   * enable SELinux with targeted policy
+   * enable firewalld with default configuration
+   * root pasword is set to asdf
+   * two machines gamma, delta
+   * commands ping gammma, ping delta
+** Cluster
+   40%
+   * create 2-node cluester
+   * create NFS mount point that will fail-over to the second node if required
+     * Not required to see same data so shared storage not requred at all
+   * Mount this NFS (service) on the other node. These two service 
+     should not run on the same machine if possible
+** Storage
+   30%
+   * create scenario with following properties
+     * when two physical disks are brokend, the filesystem on top of them is still working
+     * thete is unused ...
+     * use loopbacks only
+     * data hsould be encrypted
+         
+* Test3
+  Usually something 
+** Install virtual machines
+   30%
+   * enable SELinux with targeted policy
+   * enable firewalld with default configuration
+   * root pasword is set to asdf
+   * two machines gamma, delta
+   * commands ping gammma, ping delta
+** Partitioning
+   * create disk dev, 200MB
+   * divide into two parts and store 150MB on each
+   * mount these parts at the boot time
+   
+** Data Storage
+   40%
+   * prepare a data server on node B and server data to A
+   * data encrypted during network transfer
+   * data store (device) on A shoulde be mounted read-write to /mnt/my-data and write
+     access has to work
+** Bonus track
+   10%

@@ -1,0 +1,168 @@
+* Creating bootable image with qemu
+  #+BEGIN_SOURCE bash
+  qemu-img create -f raw <img_file> 4 G
+  #+END_SOURCE bash
+  ~~qemu-system-x86_64 -cdrom ~/Documents/CentOS-7-x86_64-Minimal-1804.iso -boot menu=on -drive file=centos_v1,format=raw -m 4G -enable-kvm~~
+* Running bootable image
+  #+BEGIN_SOURCE bash
+  qemu-system-x86_64 --enable-kvm \
+  --memory 1G \
+  --device e1000,netdev=net0 \ #creates virtual e1000 network device 
+  --netdev user,id=net0,hostfdw=tcp::5555-:22 # forwarding host port 5555 to guest port 22
+  #+END_SOURCE bash
+
+  after this just type ~~ssh root@localhost -p 5555~~ and you are home
+* Misc
+** PING doesn't work, use something else to test tcp/ip
+* Prednaska 1
+** Disk management
+   fallocate
+   losetup
+   pvscan
+   vgscan
+   lvscan
+*** Exercise 1 sol
+    #+BEGIN_SRC bash
+
+    fallocate -l 100m disk
+    losetup -f disk
+    pvcreate /dev/loopX
+
+    vgcreate
+
+    vgcreate foo /dev/loopX
+    vgs # just to check
+    lvcreate -l 100%FREE -n first foo
+    mkfs.ext2 /dev/foo/first
+    mount /dev/foo/first /mnt
+    date > /mnt/hello # some data
+
+    fallocate -l 200m disk2
+    losetup -f disk2
+    vgextend foo  /dev/loopX
+    vgextend foo /dev/loopY
+
+    vgs # check
+
+    pvmove /dev/loop2 /dev/loop3 # super safe data move, even with running applications
+    
+    vgreduce foo /dev/loop2 # interchangable with pvremove --force --force # or pvremove -ff
+    pvremove /dev/loop2
+
+    losetup -d /dev/loop2
+    losetup -a # check
+    
+    # something more
+    lvremove foo/first
+
+    #+END_SRC
+*** Exercise 2
+    #+BEGIN_SRC bash
+
+    fallocate -l 200m ttdisk
+    losetup -f ttdisk
+
+    pvcreate /dev/loopX
+    vgcreate foo /dev/loopX
+
+    lvcreate -T -n thin -l 100%FREE tt
+    mkfs.ext4 /dev/tt/thin
+
+    lvcreate --snapshot
+    #+END_SRC
+
+* Raids
+  Commands:
+    mdadm
+      * --create /dev/md0 --level 5 --raid-devices 3 /dev/loopx /dev/loopy /dev/loopz :: create raid5 md0
+      * --manage /dev/md0 -f /dev/loop1 :: Set faulty disk
+      * --manage /dev/md0 --remove /dev/loop2
+      * --manage /dev/md0 --add /dev/loop2
+      * --manage /dev/md0 --add-sparse /dev/loop2
+      * --stop /dev/md0 :: stops raid
+      * --assemble /dev/md0 /dev/loopX /dev/loopY /dev/loopZ :: starts up stopped raid
+
+* [[https://github.com/danieluhricek/linux-cheatsheet][dan-poznamky]]
+
+* Network
+** zakazat ssh z virtualky
+   iptables -A OUTPUT -p tcp --dport 22 -j REJECT
+   ~~iptables -A INPUT -p tcp --destination-port 80 -j DROP~~
+   ~~iptables -A INPUT -p tcp --source localhost --destination-port 80 -j DROP~~
+** povoleni ssh ale max 1/min
+** logovat na portu 999
+* Zkouska 18.12, 7.1, 14.1
+* Clusters
+  =Passwords= = superpass
+  [[https://clusterlabs.org/pacemaker/doc/en-US/Pacemaker/1.1/html/Clusters_from_Scratch/][Clusters from scratch]]
+* iscsi
+** setup
+   [[https://www.server-world.info/en/note?os=CentOS_7&p=iscsi][basic]]
+   [[https://www.server-world.info/en/note?os=CentOS_7&p=iscsi&f=2][connect]]
+* Docker exercise
+** Run bash
+** Run apache 2x
+   * port mapping
+   #+SRC_BEGIN sh
+   docker pull httpd
+   docker run -dit --name 'apache1' -p 8080:80  httpd
+   docker run -dit --name 'apache2' -p 8081:80  httpd
+   #+SRC_END
+   starts 2 apaches in docker, one serving content on 8080, second 8081
+** Create docker file, git clone something, build, execute
+* Test preparation
+  * All commands supposed to be run with root privileges
+  * Machines are running CentOS 7 x86_64
+** Machines setup
+   * Set hostname :: /etc/hostname
+   * Set aliases for network :: /etc/hosts
+   * Change password :: ~~passwd <password>~~
+   * Setup NICs :: /etc/sysconfig/network-scripts
+                   Setup NIC for static IP on local net
+    #+BEGIN_SRC bash
+    #file /etc/sysconfig/network-scripts/enp0s8
+
+    TYPE=Ethernet
+    BOOTPROTO=static
+    NAME=enp0s8
+    DEVICE=enp0s8
+    ONBOOT=yes
+    IPADDR=192.168.13.3 # or some IP
+    NETMASK=255.255.255.0 
+    BROADCAST=192.168.13.0
+
+    #+END_SRC bash
+** Firewalls
+   * Enable firewall
+   ~~ systemctl enable --now firewalld ~~
+** RAIDs
+*** Requirements
+    ~~yum install -y mdadm~~
+*** Disk setup
+    * Fake disk with loop devices attached to large files
+    #+BEGIN_SRC bash
+      fallocate -l 200m disk0
+      losetup -f disk0
+    #+END_SRC
+*** Filesystem
+    * Create filesystem on fake disk
+    ~mkfs.ext4 /dev/loop0~
+** LVM
+   * Everything important already installed on CentOS 7
+   * Create disk as in Disk setup
+   * Scanning commands:
+     * pvs :: physical volume scan
+     * vgs :: virtual volume scan
+     * lvs :: logical volume scan
+   * Managing commands:
+     * pvcreate
+     * vgcreate
+     * lvcreate
+*** Add disk to physical volume
+    ~pvcreate /dev/loop0 name~
+** Selinux
+   * Get selinux mode
+     ~getenforce~
+   * Set selinux mode
+     ~setenforce [Permissive | Enforcing]~
+** Clusters
