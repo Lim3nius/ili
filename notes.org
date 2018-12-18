@@ -116,6 +116,7 @@
 ** Machines setup
    * Set hostname :: /etc/hostname
    * Set aliases for network :: /etc/hosts
+     * in host, machine names should be assigned with non 127.0.0.1 IPs
    * Change password :: ~~passwd <password>~~
    * Setup NICs :: /etc/sysconfig/network-scripts
                    Setup NIC for static IP on local net
@@ -147,6 +148,34 @@
 *** Filesystem
     * Create filesystem on fake disk
     ~mkfs.ext4 /dev/loop0~
+*** Create raid
+    ~~mdadm --create /dev/md0 --level=5 --raid-disks=3 /dev/loop1 /dev/loop2 /dev/loop3 ~~
+*** Info about array
+    ~cat /proc/mdstat~
+    ~mdadm --detail /dev/md0~
+*** Add spare drive
+    ~mdadm --manage /dev/md0 --add-spare /dev/loop7~
+*** Stop array
+    ~mdadm --stop /dev/md0~
+*** Start
+    ~mdadm --assemble --scan~
+*** Make RAID survive reboot
+    #+BEGIN_SRC sh
+      # make /etc/rc.local executable at boot
+      chmod +x /etc/rc.local
+
+      # edit file
+      # /etc/rc.local FILE:
+      for x in {1..7}; do losetup /dev/loop${x} /root/disk${x}; done
+
+      # rebuild arrays
+      mdadm --assemble --scan
+    #+END_SRC
+*** Use it
+    create mount point
+    format /dev/mdX
+    mount it
+    
 ** LVM
    * Everything important already installed on CentOS 7
    * Create disk as in Disk setup
@@ -160,9 +189,61 @@
      * lvcreate
 *** Add disk to physical volume
     ~pvcreate /dev/loop0 name~
+*** Create group
+    ~vgcreate name physical_volumes~
+*** Create thin pool volume
+    ~lvcreate -L64M -V150M --thinpool ili-vg/tp~
 ** Selinux
    * Get selinux mode
      ~getenforce~
    * Set selinux mode
      ~setenforce [Permissive | Enforcing]~
 ** Clusters
+   * [[https://clusterlabs.org/pacemaker/doc/en-US/Pacemaker/1.1/html/Clusters_from_Scratch/][Clusters from scratch]]
+*** Requirements
+    ~yum install -y pacemaker pcs psmisc policycoreutils-python~
+    OR
+    ~yum groupinstall 'High Availability'~ *All you need to run high avail. clusters*
+*** Configuration
+    #+BEGIN_SRC bash
+      firewall-cmd --permanent --add-service=high-availability
+      firewall-cmd --reload
+
+      # Enable and start
+      systemctl enable --now pcsd.service
+      systemctl enable corosync
+      systemctl enable pacemaker
+
+      # Set password, **On all nodes**
+      passwd hacluster
+
+      # Configure corosync
+      pcs cluster auth node1 node2
+
+      pcs cluster setup --name 'whatever' node1 node2
+      pcs property set stonith-enabled=false
+
+      pcs cluster start --all
+
+      # to view info
+      # pcs status
+    #+END_SRC
+*** DRBD
+    #+BEGIN_SRC
+firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.56.106" port port="7789" protocol="tcp" accept'
+firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.56.107" port port="7789" protocol="tcp" accept'
+    #+END_SRC
+** Encryption
+*** Requirements
+    ~yum install -y cryptsetup~
+*** Config
+    #+BEGIN_SRC bash
+      cryptsetup luksFormat /dev/md0
+      cryptsetup luksOpen /dev/md0 name
+      cryptsetup luksClose name
+    #+END_SRC
+** Apache
+*** Requirements
+    ~yum install -y httpd wget~
+    ~firewall-cmd --permanent --add-service=http~
+    ~firewall-cmd --reload~
