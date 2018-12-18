@@ -207,6 +207,9 @@
     ~yum install -y pacemaker pcs psmisc policycoreutils-python~
     OR
     ~yum groupinstall 'High Availability'~ *All you need to run high avail. clusters*
+*** Info
+    [[https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/storage_administration_guide/nfs-serverconfig][nfs guide]]
+    [[https://www.linuxtechi.com/configure-nfs-server-clustering-pacemaker-centos-7-rhel-7/][Pacemaker NFS]]
 *** Configuration
     #+BEGIN_SRC bash
       firewall-cmd --permanent --add-service=high-availability
@@ -239,10 +242,18 @@ firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192
 ** Encryption
 *** Requirements
     ~yum install -y cryptsetup~
+*** Info
+    [[https://community.infosecinstitute.com/discussion/115918/possible-to-setup-open-luks-without-entering-a-password-at-boot-time][Cryptsetup at boot]]
 *** Config
     #+BEGIN_SRC bash
       cryptsetup luksFormat /dev/md0
       cryptsetup luksOpen /dev/md0 name
+
+      # make fs
+      make.ext4 /dev/mapper/md0
+      # mount device
+      mount /dev/mapper/md0 /mnt/encdisk
+
       cryptsetup luksClose name
     #+END_SRC
 ** Apache
@@ -323,3 +334,6 @@ firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192
       # or just mount it
       # mount /dev/sdb /mnt/iscsidisk
     #+END_SRC
+** Fstab
+   * check
+     ~mount -a~
