@@ -136,6 +136,9 @@
 ** Firewalls
    * Enable firewall
    ~~ systemctl enable --now firewalld ~~
+** Persistency after reboot
+   ~chmod +x /etc/rc.local~
+   Everything what should be running after reboot, can be initialized there
 ** RAIDs
 *** Requirements
     ~~yum install -y mdadm~~
@@ -247,3 +250,76 @@ firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192
     ~yum install -y httpd wget~
     ~firewall-cmd --permanent --add-service=http~
     ~firewall-cmd --reload~
+** iSCSI
+*** Requirements
+    * Target
+      ~yum install -y targetcli~
+    * Initiator
+      ~yum install -y iscsi-initiator-utils~
+*** Info
+    [[https://www.itzgeek.com/how-tos/linux/centos-how-tos/configure-iscsi-target-initiator-on-centos-7-rhel7.html][Guide]]
+    * also info about persistency (we have special case)
+*** Recipe - target
+    #+BEGIN_SRC bash
+      # enter targetcli prompt
+      targetcli
+
+      cd backstores/block
+      create <name> /dev/loopX
+
+      # create target
+      cd /iscsi
+
+      # IQN names: iqn.yyyy-mm.naming-authority:unique
+      create iqn.1994-05.com.redhat:ili-test
+
+      # ACL == Access Control List
+      cd iqn.1994-05.com.redhat:ili-test/tpg1/acls
+      create iqn.1994-05.com.redhat:alpha-access
+
+      # create LUN == Logical Unit Number
+      cd /iscsi/iqn.1994-05.com.redhat:ili-test/tpg1/luns
+      create /backstores/block/ili-iscsi
+
+      cd /
+      saveconfig
+      exit
+
+      # Enable service
+      systemctl enable target.service
+      systemctl restart target.service
+
+      # Let firewall through
+      firewall-cmd --permanent --add-port=3260/tcp
+      firewall-cmd --reload
+    #+END_SRC
+*** Recipe - initiator
+    #+BEGIN_SRC bash
+      # install initiator utils
+
+      # edit machines IQN to one which was created to access given disk (ACL)
+      vi /etc/iscsi/initiatorname.iscsi 
+
+      # discover disk
+      iscsiadm -m discovery -t st -p 192.168.56.107
+      # -m mode
+      # -t ... type, **st** abbrevitation of **send targets**
+      # -p IP where to look for iscsi
+
+      systemctl restart iscsid
+      systemctl enable iscsid
+
+      # connect to given drive
+      iscsiadm -m node -T iqn.1994-05.com.redhat:ili-test -p 192.168.56.107 -l
+      # -l ... login, only valid for discovery & node. Login to all discovered targets
+      # -T ... target name (IQN)
+
+      # everything should be ok
+      # cat /proc/partitions # prints new partition if everything went ok
+
+      # now one can make filesystem on given disk
+      # mkfs.ext4 /dev/sdb
+
+      # or just mount it
+      # mount /dev/sdb /mnt/iscsidisk
+    #+END_SRC
